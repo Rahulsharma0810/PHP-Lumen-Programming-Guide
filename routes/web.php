@@ -11,6 +11,14 @@
 |
 */
 
-$app->get('/', function () use ($app) {
+$app -> get('/', function() use ($app) {
     return $app->version();
+});
+
+// $app->get('/hello/{name}', function ($name) use ($app) {
+// 	return "Hello {$name }"; 
+// });
+
+$app->get('user/{id}', function ($id) {
+    return 'User '.$id;
 });

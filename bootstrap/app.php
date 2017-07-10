@@ -63,6 +63,10 @@ $app->middleware([
    App\Http\Middleware\RequestLogMiddleware::class
 ]);
 
+$app->routeMiddleware([
+ 'hello' => App\Http\Middleware\HelloMiddleware::class
+ ]); 
+
 // $app->routeMiddleware([
 //     'auth' => App\Http\Middleware\Authenticate::class,
 // ]);

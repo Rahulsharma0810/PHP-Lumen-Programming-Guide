@@ -1,3 +1,5 @@
+.DS_STORE
+*.DS_STORE
 /vendor
 /.idea
 Homestead.json

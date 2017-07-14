@@ -9,9 +9,9 @@
 | of the application / container and bootstraps the application so it
 | is ready to receive HTTP / Console requests from the environment.
 |
-*/
+ */
 
-$app = require __DIR__.'/../bootstrap/app.php';
+$app = require __DIR__ . '/../bootstrap/app.php';
 
 /*
 |--------------------------------------------------------------------------
@@ -23,6 +23,7 @@ $app = require __DIR__.'/../bootstrap/app.php';
 | the client's browser allowing them to enjoy the creative
 | and wonderful application we have prepared for them.
 |
-*/
+ */
 
 $app->run();
+// $app->run($app->make('request'));

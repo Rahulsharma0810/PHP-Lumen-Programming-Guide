@@ -1,6 +1,10 @@
 <?php
 
-abstract class TestCase extends Laravel\Lumen\Testing\TestCase {
+use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
+
+class TestCase extends Laravel\Lumen\Testing\TestCase {
+	use MockeryPHPUnitIntegration;
+
 	/**
 	 * Creates the application.
 	 *
@@ -11,20 +15,23 @@ abstract class TestCase extends Laravel\Lumen\Testing\TestCase {
 	}
 
 	/**
-	 * See if the response has a header. 17 *
+	 * See if the response has a header.
+	 *
 	 * @param $header
 	 * @return $this
 	 */
 	public function seeHasHeader($header) {
 		$this->assertTrue(
 			$this->response->headers->has($header),
-			"Response Should Have the header '{$header}' but does not."
+			"Response should have the header '{$header}' but does not."
 		);
+
 		return $this;
 	}
 
 	/**
-	 * Asserts that the response header matches a given regular expression 33 *
+	 * Asserts that the response header matches a given regular expression
+	 *
 	 * @param $header
 	 * @param $regexp
 	 * @return $this
@@ -39,5 +46,4 @@ abstract class TestCase extends Laravel\Lumen\Testing\TestCase {
 
 		return $this;
 	}
-
 }

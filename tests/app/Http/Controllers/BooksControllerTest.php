@@ -1,13 +1,13 @@
 <?php
 
 namespace Tests\App\Http\Controllers;
-use App\Exceptions\Handler;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
+
+use Laravel\Lumen\Testing\DatabaseMigrations;
 use TestCase;
-use \Mockery as m;
 
 class BooksControllerTest extends TestCase {
+	use DatabaseMigrations;
+
 	/** @test **/
 	public function index_status_code_should_be_200() {
 		$this->get('/books')->seeStatusCode(200);
@@ -16,40 +16,35 @@ class BooksControllerTest extends TestCase {
 	/** @test **/
 	public function index_should_return_a_collection_of_records() {
 		$books = factory('App\Book', 2)->create();
+
 		$this->get('/books');
-		foreach ($books as $book) {
-			$this->seeJson(['title' => $book->title]);
-		}
+		$expected = [
+			'data' => $books->toArray(),
+		];
+
+		$this->seeJsonEquals($expected);
 	}
 
 	/** @test **/
 	public function show_should_return_a_valid_book() {
 		$book = factory('App\Book')->create();
+		$expected = [
+			'data' => $book->toArray(),
+		];
 		$this
 			->get("/books/{$book->id}")
 			->seeStatusCode(200)
-			->seeJson([
-				'id' => $book->id,
-				'title' => $book->title,
-				'description' => $book->description,
-				'author' => $book->author,
-			]);
-
-		$data = json_decode($this->response->getContent(), true);
-		$this->assertArrayHasKey('created_at', $data);
-		$this->assertArrayHasKey('updated_at', $data);
+			->seeJsonEquals($expected);
 	}
+
 	/** @test **/
 	public function show_should_fail_when_the_book_id_does_not_exist() {
-		$this->markTestIncomplete('Pending test');
 		$this
 			->get('/books/99999', ['Accept' => 'application/json'])
 			->seeStatusCode(404)
 			->seeJson([
-				'error' => [
-					'message' => 'Not Found',
-					'status' => 404,
-				],
+				'message' => 'Not Found',
+				'status' => 404,
 			]);
 	}
 
@@ -67,27 +62,37 @@ class BooksControllerTest extends TestCase {
 	/** @test **/
 	public function store_should_save_new_book_in_the_database() {
 		$this->post('/books', [
-			'title' => 'Manual Entered Book BY Test',
-			'description' => '2An invisible man is trapped in the terror of his own creation',
-			'author' => 'PHpUNit',
+			'title' => 'The Invisible Man',
+			'description' => 'An invisible man is trapped in the terror of his own creation',
+			'author' => 'H. G. Wells',
 		]);
 
-		$this
-			->seeJson(['created' => true])
-			->seeInDatabase('books', ['title' => 'Manual Entered Book BY Test']);
+		$body = json_decode($this->response->getContent(), true);
+		$this->assertArrayHasKey('data', $body);
+
+		$data = $body['data'];
+		$this->assertEquals('The Invisible Man', $data['title']);
+		$this->assertEquals(
+			'An invisible man is trapped in the terror of his own creation',
+			$data['description']
+		);
+		$this->assertEquals('H. G. Wells', $data['author']);
+		$this->assertTrue($data['id'] > 0, 'Expected a positive integer, but did not see one.');
+		$this->seeInDatabase('books', ['title' => 'The Invisible Man']);
 	}
 
-	/** @test **/
+	/** @test */
 	public function store_should_respond_with_a_201_and_location_header_when_successful() {
-
 		$this->post('/books', [
 			'title' => 'The Invisible Man',
 			'description' => 'An invisible man is trapped in the terror of his own creation',
 			'author' => 'H. G. Wells',
 		]);
+
 		$this
 			->seeStatusCode(201)
 			->seeHeaderWithRegExp('Location', '#/books/[\d]+$#');
+
 	}
 
 	/** @test **/
@@ -96,6 +101,12 @@ class BooksControllerTest extends TestCase {
 			'title' => 'War of the Worlds',
 			'description' => 'A science fiction masterpiece about Martians invading London',
 			'author' => 'H. G. Wells',
+		]);
+
+		$this->notSeeInDatabase('books', [
+			'title' => 'The War of the Worlds',
+			'description' => 'The book is way better than the movie.',
+			'author' => 'Wells, H. G.',
 		]);
 
 		$this->put("/books/{$book->id}", [
@@ -116,6 +127,10 @@ class BooksControllerTest extends TestCase {
 			->seeInDatabase('books', [
 				'title' => 'The War of the Worlds',
 			]);
+
+		// Verify the data key in the response
+		$body = json_decode($this->response->getContent(), true);
+		$this->assertArrayHasKey('data', $body);
 	}
 
 	/** @test **/
@@ -125,10 +140,9 @@ class BooksControllerTest extends TestCase {
 			->seeStatusCode(404)
 			->seeJsonEquals([
 				'error' => [
-					'message' => 'Book Not Found',
+					'message' => 'Book not found',
 				],
 			]);
-
 	}
 
 	/** @test **/
@@ -148,116 +162,21 @@ class BooksControllerTest extends TestCase {
 		$this->notSeeInDatabase('books', ['id' => $book->id]);
 	}
 
-/** @test **/
+	/** @test **/
 	public function destroy_should_return_a_404_with_an_invalid_id() {
 		$this
 			->delete('/books/99999')
 			->seeStatusCode(404)
 			->seeJsonEquals([
 				'error' => [
-					'message' => 'Book Not Found',
+					'message' => 'Book not found',
 				],
 			]);
-
-	}
-
-/** @test **/
-	public function destroy_should_not_match_an_invalid_route() {
-		$this
-			->delete('/books/this-is-invalid')
-			->seeStatusCode(404);
 	}
 
 	/** @test **/
-	public function it_responds_with_html_when_json_is_not_accepted() {
-		// Make the mock a partial, you only want to mock the `isDebugMode` method
-		$subject = m::mock(Handler::class)->makePartial();
-		$subject->shouldNotReceive('isDebugMode');
-
-// Mock the interaction with the Request
-		$request = m::mock(Request::class);
-		$request->shouldReceive('wantsJson')->andReturn(false);
-
-// Mock the interaction with the exception
-		$exception = m::mock(\Exception::class, ['Error!']);
-		$exception->shouldNotReceive('getStatusCode');
-		$exception->shouldNotReceive('getTrace');
-		$exception->shouldNotReceive('getMessage');
-
-// Call the method under test, this is not a mocked method.
-		$result = $subject->render($request, $exception);
-
-// Assert that `render` does not return a JsonResponse
-		$this->assertNotInstanceOf(JsonResponse::class, $result);
-	}
-
-	/** @test */
-	public function it_responds_with_json_for_json_consumers() {
-		$subject = m::mock(Handler::class)->makePartial();
-		$subject
-			->shouldReceive('isDebugMode')
-			->andReturn(false);
-
-		$request = m::mock(Request::class);
-		$request
-			->shouldReceive('wantsJson')
-			->andReturn(true);
-
-		$exception = m::mock(\Exception::class, ['Doh!']);
-		$exception
-			->shouldReceive('getMessage')
-			->andReturn('Doh!');
-
-		/** @var JsonResponse $result */
-		$result = $subject->render($request, $exception);
-		$data = $result->getData();
-
-		$this->assertInstanceOf(JsonResponse::class, $result);
-		$this->assertObjectHasAttribute('error', $data);
-		$this->assertAttributeEquals('Doh!', 'message', $data->error);
-		$this->assertAttributeEquals(400, 'status', $data->error);
-	}
-
-	/** @test */
-	public function it_provides_json_responses_for_http_exceptions() {
-		$subject = m::mock(Handler::class)->makePartial();
-		$subject
-			->shouldReceive('isDebugMode')
-			->andReturn(false);
-
-		$request = m::mock(Request::class);
-		$request->shouldReceive('wantsJson')->andReturn(true);
-
-		$examples = [
-			[
-				'mock' => NotFoundHttpException::class,
-				'status' => 404,
-				'message' => 'Not Found',
-			],
-			[
-				'mock' => AccessDeniedHttpException::class,
-				'status' => 403,
-				'message' => 'Forbidden',
-			],
-			[
-				'mock' => ModelNotFoundException::class,
-				'status' => 404,
-				'message' => 'Not Found',
-			],
-		];
-
-		foreach ($examples as $e) {
-			$exception = m::mock($e['mock']);
-			$exception->shouldReceive('getMessage')->andReturn(null);
-			$exception->shouldReceive('getStatusCode')->andReturn($e['status']);
-
-			/** @var JsonResponse $result */
-			$result = $subject->render($request, $exception);
-			$data = $result->getData();
-
-			$this->assertEquals($e['status'], $result->getStatusCode());
-			$this->assertEquals($e['message'], $data->error->message);
-			$this->assertEquals($e['status'], $data->error->status);
-		}
+	public function destroy_should_not_match_an_invalid_route() {
+		$this->delete('/books/this-is-invalid')
+			->seeStatusCode(404);
 	}
 }
